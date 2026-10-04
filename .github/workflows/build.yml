@@ -44,7 +44,7 @@ jobs:
           ln -s /Applications dmg/Applications
           cp 使用说明_Mac.txt dmg/使用说明.txt
           cp 第三方开源许可.txt dmg/
-          hdiutil create -volname "去气口工具" -srcfolder dmg -ov -format UDZO "去气口工具_Mac版_${{ matrix.arch }}_v${{ env.VERSION }}.dmg"
+          hdiutil create -volname "去气口工具" -srcfolder dmg -ov -format UDZO "QiQiKou-Mac-${{ matrix.arch }}-v${{ env.VERSION }}.dmg"
       - uses: actions/upload-artifact@v4
         with:
           name: 去气口工具_Mac版_${{ matrix.arch }}
@@ -77,7 +77,7 @@ jobs:
         run: |
           Copy-Item 使用说明_Windows.txt dist\去气口工具\使用说明.txt
           Copy-Item 第三方开源许可.txt dist\去气口工具\
-          Compress-Archive -Path dist\去气口工具 -DestinationPath "去气口工具_Windows版_v$env:VERSION.zip"
+          Compress-Archive -Path dist\去气口工具 -DestinationPath "QiQiKou-Windows-v$env:VERSION.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: 去气口工具_Windows版
@@ -102,7 +102,7 @@ jobs:
           make_latest: true
           body: |
             口播配音自动去换气、剪长停顿。下载对应系统的安装包：
-            - **Windows 10/11**：`去气口工具_Windows版` zip，解压后双击 `去气口工具.exe`
-            - **Mac（Apple M 系列芯片）**：`AppleSilicon` dmg
-            - **Mac（Intel 芯片）**：`Intel` dmg
+            - **Windows 10/11**：`QiQiKou-Windows-v${{ env.VERSION }}.zip`，解压后双击 `去气口工具.exe`
+            - **Mac（Apple M 系列芯片）**：`QiQiKou-Mac-AppleSilicon-v${{ env.VERSION }}.dmg`
+            - **Mac（Intel 芯片）**：`QiQiKou-Mac-Intel-v${{ env.VERSION }}.dmg`
             第一次打开的安全提示怎么处理，见安装包里的「使用说明」。
