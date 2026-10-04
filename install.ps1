@@ -13,6 +13,7 @@ function U($s) { [regex]::Unescape($s) }
 $Repo    = 'lilanqiao/qiqikou-tool'
 $AppName = (U '\u53bb\u6c14\u53e3\u5de5\u5177')
 $Dest    = Join-Path $env:LOCALAPPDATA "Programs\QiQiKou"
+if ($env:QIQIKOU_DEST) { $Dest = $env:QIQIKOU_DEST }          # for testing only
 
 if (-not [Environment]::Is64BitOperatingSystem) {
     Write-Host (U '\u53ea\u652f\u6301 64 \u4f4d Windows 10/11') -ForegroundColor Red; return
@@ -47,10 +48,11 @@ try {
 
     $exe = Join-Path $Dest ($AppName + '.exe')
     $wsh = New-Object -ComObject WScript.Shell
-    $links = @(
-        (Join-Path ([Environment]::GetFolderPath('Desktop')) ($AppName + '.lnk')),
-        (Join-Path ([Environment]::GetFolderPath('Programs')) ($AppName + '.lnk'))
-    )
+    $desk = [Environment]::GetFolderPath('Desktop')
+    if (-not $desk) { $desk = Join-Path $env:USERPROFILE 'Desktop' }
+    $menu = [Environment]::GetFolderPath('Programs')
+    if ($env:QIQIKOU_LINKDIR) { $desk = $menu = $env:QIQIKOU_LINKDIR }   # for testing only
+    $links = @((Join-Path $desk ($AppName + '.lnk')), (Join-Path $menu ($AppName + '.lnk'))) | Select-Object -Unique
     foreach ($l in $links) {
         $s = $wsh.CreateShortcut($l)
         $s.TargetPath = $exe; $s.WorkingDirectory = $Dest; $s.IconLocation = "$exe,0"; $s.Save()
@@ -58,6 +60,13 @@ try {
     Write-Host ""
     Write-Host (U '\u5b89\u88c5\u5b8c\u6210\uff01\u684c\u9762\u548c\u5f00\u59cb\u83dc\u5355\u90fd\u6709\u300c\u53bb\u6c14\u53e3\u5de5\u5177\u300d\uff0c\u53cc\u51fb\u5373\u53ef\u4f7f\u7528') -ForegroundColor Green
     Write-Host ((U (U '\u5b89\u88c5\u4f4d\u7f6e\uff1a{0}')) -f $Dest)
+}
+catch {
+    Write-Host ""
+    Write-Host (U '\u5b89\u88c5\u5931\u8d25\uff1a') -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+    Write-Host $_.InvocationInfo.PositionMessage
+    throw
 }
 finally {
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue

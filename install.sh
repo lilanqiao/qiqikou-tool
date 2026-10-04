@@ -31,13 +31,13 @@ fi
 
 echo
 printf '\033[33m== 去气口工具 安装 ==\033[0m\n'
-echo "检测到系统：macOS $(sw_vers -productVersion)（$label），只下载对应的 Mac 版"
+echo "检测到系统：macOS $(sw_vers -productVersion)（${label}），只下载对应的 Mac 版"
 
 url=$(curl -fsSL -H "User-Agent: qiqikou-installer" "https://api.github.com/repos/$REPO/releases/latest" \
-      | grep -o "\"browser_download_url\": *\"[^\"]*QiQiKou-Mac-$kind-[^\"]*\.dmg\"" \
+      | grep -o "\"browser_download_url\": *\"[^\"]*QiQiKou-Mac-${kind}-[^\"]*\.dmg\"" \
       | head -1 | sed 's/.*"\(https[^"]*\)"$/\1/')
 if [ -z "$url" ]; then
-  red "发布页上没找到 $label 的安装包"; exit 1
+  red "发布页上没找到 ${label} 的安装包"; exit 1
 fi
 
 tmp=$(mktemp -d)
@@ -62,4 +62,4 @@ cp -R "$mnt/$APP" "$dest/"
 xattr -cr "$dest/$APP"     # 去掉"从网上下载"标记，第一次打开不会被拦截
 
 echo
-green "安装完成！在「启动台」或「$dest」里打开「去气口工具」即可"
+green "安装完成！在「启动台」或「${dest}」里打开「去气口工具」即可"

@@ -13,6 +13,7 @@ function U($s) { [regex]::Unescape($s) }
 $Repo    = 'lilanqiao/qiqikou-tool'
 $AppName = "去气口工具"
 $Dest    = Join-Path $env:LOCALAPPDATA "Programs\QiQiKou"
+if ($env:QIQIKOU_DEST) { $Dest = $env:QIQIKOU_DEST }          # for testing only
 
 if (-not [Environment]::Is64BitOperatingSystem) {
     Write-Host "只支持 64 位 Windows 10/11" -ForegroundColor Red; return
@@ -47,10 +48,11 @@ try {
 
     $exe = Join-Path $Dest ($AppName + '.exe')
     $wsh = New-Object -ComObject WScript.Shell
-    $links = @(
-        (Join-Path ([Environment]::GetFolderPath('Desktop')) ($AppName + '.lnk')),
-        (Join-Path ([Environment]::GetFolderPath('Programs')) ($AppName + '.lnk'))
-    )
+    $desk = [Environment]::GetFolderPath('Desktop')
+    if (-not $desk) { $desk = Join-Path $env:USERPROFILE 'Desktop' }
+    $menu = [Environment]::GetFolderPath('Programs')
+    if ($env:QIQIKOU_LINKDIR) { $desk = $menu = $env:QIQIKOU_LINKDIR }   # for testing only
+    $links = @((Join-Path $desk ($AppName + '.lnk')), (Join-Path $menu ($AppName + '.lnk'))) | Select-Object -Unique
     foreach ($l in $links) {
         $s = $wsh.CreateShortcut($l)
         $s.TargetPath = $exe; $s.WorkingDirectory = $Dest; $s.IconLocation = "$exe,0"; $s.Save()
@@ -58,6 +60,13 @@ try {
     Write-Host ""
     Write-Host "安装完成！桌面和开始菜单都有「去气口工具」，双击即可使用" -ForegroundColor Green
     Write-Host ((U "安装位置：{0}") -f $Dest)
+}
+catch {
+    Write-Host ""
+    Write-Host "安装失败：" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+    Write-Host $_.InvocationInfo.PositionMessage
+    throw
 }
 finally {
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
