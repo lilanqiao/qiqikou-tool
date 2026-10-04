@@ -10,6 +10,40 @@ $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 function U($s) { [regex]::Unescape($s) }
 
+# Shortcuts via IShellLinkW (Unicode). WScript.Shell's shortcut object rejects paths with
+# characters outside the system ANSI code page (e.g. Chinese names on English Windows).
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+public static class QKLink {
+    [ComImport, Guid("00021401-0000-0000-C000-000000000046")] class CShellLink {}
+    [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("000214F9-0000-0000-C000-000000000046")]
+    interface IShellLinkW {
+        void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder f, int c, IntPtr d, int fl);
+        void GetIDList(out IntPtr p); void SetIDList(IntPtr p);
+        void GetDescription([Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder n, int c);
+        void SetDescription([MarshalAs(UnmanagedType.LPWStr)] string n);
+        void GetWorkingDirectory([Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder d, int c);
+        void SetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] string d);
+        void GetArguments([Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder a, int c);
+        void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string a);
+        void GetHotkey(out short k); void SetHotkey(short k);
+        void GetShowCmd(out int s); void SetShowCmd(int s);
+        void GetIconLocation([Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder p, int c, out int i);
+        void SetIconLocation([MarshalAs(UnmanagedType.LPWStr)] string p, int i);
+        void SetRelativePath([MarshalAs(UnmanagedType.LPWStr)] string p, int r);
+        void Resolve(IntPtr h, int f);
+        void SetPath([MarshalAs(UnmanagedType.LPWStr)] string f);
+    }
+    public static void Create(string lnk, string target, string workdir) {
+        var l = (IShellLinkW)new CShellLink();
+        l.SetPath(target); l.SetWorkingDirectory(workdir); l.SetIconLocation(target, 0);
+        ((IPersistFile)l).Save(lnk, true);
+    }
+}
+'@
+
 $Repo    = 'lilanqiao/qiqikou-tool'
 $AppName = (U '\u53bb\u6c14\u53e3\u5de5\u5177')
 $Dest    = Join-Path $env:LOCALAPPDATA "Programs\QiQiKou"
@@ -47,16 +81,12 @@ try {
     Get-ChildItem $Dest -Recurse -File | Unblock-File
 
     $exe = Join-Path $Dest ($AppName + '.exe')
-    $wsh = New-Object -ComObject WScript.Shell
     $desk = [Environment]::GetFolderPath('Desktop')
     if (-not $desk) { $desk = Join-Path $env:USERPROFILE 'Desktop' }
     $menu = [Environment]::GetFolderPath('Programs')
     if ($env:QIQIKOU_LINKDIR) { $desk = $menu = $env:QIQIKOU_LINKDIR }   # for testing only
     $links = @((Join-Path $desk ($AppName + '.lnk')), (Join-Path $menu ($AppName + '.lnk'))) | Select-Object -Unique
-    foreach ($l in $links) {
-        $s = $wsh.CreateShortcut($l)
-        $s.TargetPath = $exe; $s.WorkingDirectory = $Dest; $s.IconLocation = "$exe,0"; $s.Save()
-    }
+    foreach ($l in $links) { [QKLink]::Create($l, $exe, $Dest) }
     Write-Host ""
     Write-Host (U '\u5b89\u88c5\u5b8c\u6210\uff01\u684c\u9762\u548c\u5f00\u59cb\u83dc\u5355\u90fd\u6709\u300c\u53bb\u6c14\u53e3\u5de5\u5177\u300d\uff0c\u53cc\u51fb\u5373\u53ef\u4f7f\u7528') -ForegroundColor Green
     Write-Host ((U (U '\u5b89\u88c5\u4f4d\u7f6e\uff1a{0}')) -f $Dest)
