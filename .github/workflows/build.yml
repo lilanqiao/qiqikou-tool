@@ -46,7 +46,7 @@ jobs:
           cp 第三方开源许可.txt dmg/
           # 云端 Mac 偶发 "Resource busy"，重试几次
           for i in 1 2 3 4 5; do
-            hdiutil create -volname "去气口工具" -srcfolder dmg -ov -format UDZO "QiQiKou-Mac-${{ matrix.arch }}-v${{ env.VERSION }}.dmg" && break
+            hdiutil create -volname "去气口工具" -srcfolder dmg -ov -format UDZO "QiQiKou-Mac-${{ matrix.arch }}.dmg" && break
             [ $i = 5 ] && exit 1; echo "第 $i 次失败，稍后重试"; sleep $((i * 5))
           done
       - uses: actions/upload-artifact@v4
@@ -81,7 +81,7 @@ jobs:
         run: |
           Copy-Item 使用说明_Windows.txt dist\去气口工具\使用说明.txt
           Copy-Item 第三方开源许可.txt dist\去气口工具\
-          Compress-Archive -Path dist\去气口工具 -DestinationPath "QiQiKou-Windows-v$env:VERSION.zip"
+          Compress-Archive -Path dist\去气口工具 -DestinationPath "QiQiKou-Windows.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: 去气口工具_Windows版
@@ -106,9 +106,9 @@ jobs:
           make_latest: true
           body: |
             口播配音自动去换气、剪长停顿。下载对应系统的安装包：
-            - **Windows 10/11**：`QiQiKou-Windows-v${{ env.VERSION }}.zip`，解压后双击 `去气口工具.exe`
-            - **Mac（Apple M 系列芯片）**：`QiQiKou-Mac-AppleSilicon-v${{ env.VERSION }}.dmg`
-            - **Mac（Intel 芯片）**：`QiQiKou-Mac-Intel-v${{ env.VERSION }}.dmg`
+            - **Windows 10/11**：`QiQiKou-Windows.zip`，解压后双击 `去气口工具.exe`
+            - **Mac（Apple M 系列芯片）**：`QiQiKou-Mac-AppleSilicon.dmg`
+            - **Mac（Intel 芯片）**：`QiQiKou-Mac-Intel.dmg`
             第一次打开的安全提示怎么处理，见安装包里的「使用说明」。
 
   # ── 发布后，在全新的云端机器上原样跑一遍给用户的一键安装命令 ──

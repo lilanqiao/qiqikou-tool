@@ -57,16 +57,15 @@ Write-Host ""
 Write-Host "== 去气口工具 安装 ==" -ForegroundColor Yellow
 Write-Host "检测到系统：Windows（64 位），只下载 Windows 版"
 
-$rel   = Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest" -Headers @{ 'User-Agent' = 'qiqikou-installer' }
-$asset = $rel.assets | Where-Object { $_.name -like 'QiQiKou-Windows-*.zip' } | Select-Object -First 1
-if (-not $asset) { Write-Host "发布页上没找到 Windows 安装包" -ForegroundColor Red; return }
-Write-Host ((U "下载：{0}（{1} MB）") -f $asset.name, [math]::Round($asset.size / 1MB))
+# Fixed "latest" download URL instead of the GitHub API (unauthenticated API is limited to 60/hour per IP)
+$url = "https://github.com/$Repo/releases/latest/download/QiQiKou-Windows.zip"
+Write-Host "下载：QiQiKou-Windows.zip（约 40 MB）"
 
 $tmp = Join-Path $env:TEMP ("qiqikou_" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $tmp | Out-Null
 try {
     $zip = Join-Path $tmp 'app.zip'
-    Invoke-WebRequest $asset.browser_download_url -OutFile $zip -UseBasicParsing
+    Invoke-WebRequest $url -OutFile $zip -UseBasicParsing
     Write-Host "解压中…"
     Expand-Archive $zip -DestinationPath $tmp -Force
     $src = Get-ChildItem $tmp -Directory | Where-Object { Test-Path (Join-Path $_.FullName '*.exe') } | Select-Object -First 1

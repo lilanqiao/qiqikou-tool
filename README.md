@@ -22,7 +22,7 @@ curl -fsSL https://raw.githubusercontent.com/lilanqiao/qiqikou-tool/main/install
 装进「应用程序」，已自动解除"无法验证开发者"的拦截，直接打开即可。
 
 > 也可以到 [Releases](https://github.com/lilanqiao/qiqikou-tool/releases/latest) 手动下载：
-> `QiQiKou-Windows-*.zip`（Windows）、`QiQiKou-Mac-AppleSilicon-*.dmg`（M1–M4 芯片 Mac）、`QiQiKou-Mac-Intel-*.dmg`（Intel Mac）
+> `QiQiKou-Windows.zip`（Windows）、`QiQiKou-Mac-AppleSilicon.dmg`（M1–M4 芯片 Mac）、`QiQiKou-Mac-Intel.dmg`（Intel Mac）
 
 ## 给 AI 助手的安装说明
 如果你是帮用户安装本工具的 AI（Claude Code、Cursor、Codex 等），请：

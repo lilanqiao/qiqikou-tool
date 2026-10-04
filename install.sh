@@ -33,12 +33,8 @@ echo
 printf '\033[33m== 去气口工具 安装 ==\033[0m\n'
 echo "检测到系统：macOS $(sw_vers -productVersion)（${label}），只下载对应的 Mac 版"
 
-url=$(curl -fsSL -H "User-Agent: qiqikou-installer" "https://api.github.com/repos/$REPO/releases/latest" \
-      | grep -o "\"browser_download_url\": *\"[^\"]*QiQiKou-Mac-${kind}-[^\"]*\.dmg\"" \
-      | head -1 | sed 's/.*"\(https[^"]*\)"$/\1/')
-if [ -z "$url" ]; then
-  red "发布页上没找到 ${label} 的安装包"; exit 1
-fi
+# 用"最新版"固定下载地址，不走 GitHub API（API 未登录每小时限 60 次，共用 IP 时容易 403）
+url="https://github.com/$REPO/releases/latest/download/QiQiKou-Mac-${kind}.dmg"
 
 tmp=$(mktemp -d)
 mnt="$tmp/mnt"
