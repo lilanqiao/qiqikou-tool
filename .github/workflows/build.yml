@@ -1,0 +1,108 @@
+# 在 GitHub 的云端机器上打包：Windows 版 + Mac 版（Apple 芯片 / Intel），
+# 全部通过自检后，自动更新到仓库的 Releases（发布页）。
+# 触发：推送代码，或在仓库 Actions 页面手动点 "Run workflow"。
+name: build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  VERSION: "2.0"
+
+jobs:
+  mac:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14          # Apple 芯片（M1/M2/M3/M4）
+            arch: AppleSilicon
+          - runner: macos-15-intel    # Intel 芯片的老款 Mac
+            arch: Intel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 装依赖
+        run: pip install numpy onnxruntime soundfile soxr tkinterdnd2 pyinstaller
+      - name: 打包
+        run: pyinstaller --noconfirm qiqikou.spec
+      - name: 自检（用系统自带的中文语音合成一段测试音频，跑一遍处理）
+        run: |
+          say -v Tingting -o test.aiff "大家好，今天给大家介绍一个小工具。它可以自动去掉口播里的换气声，还能把太长的停顿剪短。" || say -o test.aiff "Hello, this is a test of the breath removal tool. It trims long pauses."
+          afconvert -f WAVE -d LEI16@22050 test.aiff test.wav
+          "dist/去气口工具.app/Contents/MacOS/去气口工具" --selftest "$PWD/test.wav" "$PWD/selftest_out"
+          cat selftest_out/selftest.log
+          grep -q "RESULT OK" selftest_out/selftest.log
+      - name: 做成 DMG 安装包
+        run: |
+          mkdir -p dmg && cp -R "dist/去气口工具.app" dmg/
+          ln -s /Applications dmg/Applications
+          cp 使用说明_Mac.txt dmg/使用说明.txt
+          cp 第三方开源许可.txt dmg/
+          hdiutil create -volname "去气口工具" -srcfolder dmg -ov -format UDZO "去气口工具_Mac版_${{ matrix.arch }}_v${{ env.VERSION }}.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 去气口工具_Mac版_${{ matrix.arch }}
+          path: "*.dmg"
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 装依赖
+        run: pip install numpy onnxruntime soundfile soxr tkinterdnd2 pyinstaller
+      - name: 打包
+        run: pyinstaller --noconfirm qiqikou.spec
+      - name: 自检（用 Windows 自带的语音合成一段测试音频，跑一遍处理）
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Speech
+          $s = New-Object System.Speech.Synthesis.SpeechSynthesizer
+          $s.SetOutputToWaveFile("$PWD\test.wav")
+          $s.Speak("Hello, this is a test of the breath removal tool. It trims long pauses between sentences.")
+          $s.Dispose()
+          $p = Start-Process -FilePath "dist\去气口工具\去气口工具.exe" -ArgumentList "--selftest","$PWD\test.wav","$PWD\selftest_out" -Wait -PassThru
+          Get-Content selftest_out\selftest.log -Encoding UTF8
+          if (-not (Select-String -Path selftest_out\selftest.log -Pattern "RESULT OK" -Quiet)) { exit 1 }
+      - name: 做成 zip
+        shell: pwsh
+        run: |
+          Copy-Item 使用说明_Windows.txt dist\去气口工具\使用说明.txt
+          Copy-Item 第三方开源许可.txt dist\去气口工具\
+          Compress-Archive -Path dist\去气口工具 -DestinationPath "去气口工具_Windows版_v$env:VERSION.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 去气口工具_Windows版
+          path: "*.zip"
+
+  release:
+    needs: [mac, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: 更新发布页
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: 去气口工具 v${{ env.VERSION }}
+          files: out/*
+          make_latest: true
+          body: |
+            口播配音自动去换气、剪长停顿。下载对应系统的安装包：
+            - **Windows 10/11**：`去气口工具_Windows版` zip，解压后双击 `去气口工具.exe`
+            - **Mac（Apple M 系列芯片）**：`AppleSilicon` dmg
+            - **Mac（Intel 芯片）**：`Intel` dmg
+            第一次打开的安全提示怎么处理，见安装包里的「使用说明」。

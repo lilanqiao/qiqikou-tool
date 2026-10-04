@@ -1,0 +1,7 @@
+_build/
+build/
+dist/
+发布/
+对比测试/
+__pycache__/
+*.pyc
