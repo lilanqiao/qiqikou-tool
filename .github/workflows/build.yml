@@ -141,9 +141,12 @@ jobs:
         run: |
           $dest = Join-Path $env:LOCALAPPDATA "Programs\QiQiKou"
           $exe = Get-ChildItem $dest -Filter *.exe | Select-Object -First 1
-          if (-not $exe) { throw "没装上" }
-          $lnk = Get-ChildItem ([Environment]::GetFolderPath('Desktop')) -Filter *.lnk | Where-Object { (New-Object -ComObject WScript.Shell).CreateShortcut($_.FullName).TargetPath -eq $exe.FullName }
-          if (-not $lnk) { throw "桌面没有快捷方式" }
+          if (-not $exe) { throw "not installed" }
+          # Shell.Application 读快捷方式是 Unicode 的；WScript.Shell 在英文系统上会把中文读成 ?
+          $desk = [Environment]::GetFolderPath('Desktop')
+          $targets = (New-Object -ComObject Shell.Application).NameSpace($desk).Items() | Where-Object { $_.IsLink } | ForEach-Object { $_.GetLink.Path }
+          "desktop links -> $($targets -join ' | ')"
+          if ($targets -notcontains $exe.FullName) { throw "no desktop shortcut pointing to $($exe.FullName)" }
           Add-Type -AssemblyName System.Speech
           $s = New-Object System.Speech.Synthesis.SpeechSynthesizer
           $s.SetOutputToWaveFile("$PWD\t.wav"); $s.Speak("Hello, this is a test of the breath removal tool."); $s.Dispose()
