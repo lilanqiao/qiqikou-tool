@@ -1,0 +1,64 @@
+# QiQiKou (breath remover) Windows installer
+# Usage (PowerShell):  irm https://raw.githubusercontent.com/lilanqiao/qiqikou-tool/main/install.ps1 | iex
+# Only downloads the Windows build, installs to %LOCALAPPDATA%\Programs (no admin needed),
+# and creates Desktop + Start Menu shortcuts.
+# NOTE: this file is generated from tools/install.ps1.template (run tools/gen_install_ps1.py); non-ASCII text is \u-escaped
+#       so it survives `irm | iex` on Windows PowerShell 5.1.
+
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+function U($s) { [regex]::Unescape($s) }
+
+$Repo    = 'lilanqiao/qiqikou-tool'
+$AppName = "去气口工具"
+$Dest    = Join-Path $env:LOCALAPPDATA "Programs\QiQiKou"
+
+if (-not [Environment]::Is64BitOperatingSystem) {
+    Write-Host "只支持 64 位 Windows 10/11" -ForegroundColor Red; return
+}
+
+Write-Host ""
+Write-Host "== 去气口工具 安装 ==" -ForegroundColor Yellow
+Write-Host "检测到系统：Windows（64 位），只下载 Windows 版"
+
+$rel   = Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest" -Headers @{ 'User-Agent' = 'qiqikou-installer' }
+$asset = $rel.assets | Where-Object { $_.name -like 'QiQiKou-Windows-*.zip' } | Select-Object -First 1
+if (-not $asset) { Write-Host "发布页上没找到 Windows 安装包" -ForegroundColor Red; return }
+Write-Host ((U "下载：{0}（{1} MB）") -f $asset.name, [math]::Round($asset.size / 1MB))
+
+$tmp = Join-Path $env:TEMP ("qiqikou_" + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $tmp | Out-Null
+try {
+    $zip = Join-Path $tmp 'app.zip'
+    Invoke-WebRequest $asset.browser_download_url -OutFile $zip -UseBasicParsing
+    Write-Host "解压中…"
+    Expand-Archive $zip -DestinationPath $tmp -Force
+    $src = Get-ChildItem $tmp -Directory | Where-Object { Test-Path (Join-Path $_.FullName '*.exe') } | Select-Object -First 1
+    if (-not $src) { throw 'zip layout unexpected' }
+
+    # Close a running copy first, otherwise its files are locked
+    Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($Dest) } | Stop-Process -Force
+    Start-Sleep -Milliseconds 500
+    if (Test-Path $Dest) { Remove-Item $Dest -Recurse -Force }
+    New-Item -ItemType Directory -Path (Split-Path $Dest) -Force | Out-Null
+    Move-Item $src.FullName $Dest
+    Get-ChildItem $Dest -Recurse -File | Unblock-File
+
+    $exe = Join-Path $Dest ($AppName + '.exe')
+    $wsh = New-Object -ComObject WScript.Shell
+    $links = @(
+        (Join-Path ([Environment]::GetFolderPath('Desktop')) ($AppName + '.lnk')),
+        (Join-Path ([Environment]::GetFolderPath('Programs')) ($AppName + '.lnk'))
+    )
+    foreach ($l in $links) {
+        $s = $wsh.CreateShortcut($l)
+        $s.TargetPath = $exe; $s.WorkingDirectory = $Dest; $s.IconLocation = "$exe,0"; $s.Save()
+    }
+    Write-Host ""
+    Write-Host "安装完成！桌面和开始菜单都有「去气口工具」，双击即可使用" -ForegroundColor Green
+    Write-Host ((U "安装位置：{0}") -f $Dest)
+}
+finally {
+    Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+}

@@ -106,3 +106,43 @@ jobs:
             - **Mac（Apple M 系列芯片）**：`QiQiKou-Mac-AppleSilicon-v${{ env.VERSION }}.dmg`
             - **Mac（Intel 芯片）**：`QiQiKou-Mac-Intel-v${{ env.VERSION }}.dmg`
             第一次打开的安全提示怎么处理，见安装包里的「使用说明」。
+
+  # ── 发布后，在全新的云端机器上原样跑一遍给用户的一键安装命令 ──
+  install-test-mac:
+    needs: release
+    runs-on: macos-14
+    steps:
+      - name: 一键安装（和用户在终端里粘贴的命令一样）
+        run: curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/install.sh" | bash
+      - name: 检查装好了、没有被拦截、能处理音频
+        run: |
+          APP="/Applications/去气口工具.app"
+          test -d "$APP"
+          if xattr -r "$APP" | grep -q com.apple.quarantine; then echo "还带着隔离标记"; exit 1; fi
+          ls ~/Downloads | grep -i qiqikou && { echo "不该在下载目录留下安装包"; exit 1; } || true
+          say -v Tingting -o t.aiff "大家好，今天给大家介绍一个小工具。它可以自动去掉口播里的换气声。" || say -o t.aiff "Hello, this is a test."
+          afconvert -f WAVE -d LEI16@22050 t.aiff t.wav
+          "$APP/Contents/MacOS/去气口工具" --selftest "$PWD/t.wav" "$PWD/out"
+          cat out/selftest.log; grep -q "RESULT OK" out/selftest.log
+
+  install-test-windows:
+    needs: release
+    runs-on: windows-latest
+    steps:
+      - name: 一键安装（Windows 自带的 PowerShell 5.1，和用户粘贴的命令一样）
+        shell: powershell
+        run: irm "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/install.ps1" | iex
+      - name: 检查装好了、有快捷方式、能处理音频
+        shell: powershell
+        run: |
+          $dest = Join-Path $env:LOCALAPPDATA "Programs\QiQiKou"
+          $exe = Get-ChildItem $dest -Filter *.exe | Select-Object -First 1
+          if (-not $exe) { throw "没装上" }
+          $lnk = Get-ChildItem ([Environment]::GetFolderPath('Desktop')) -Filter *.lnk | Where-Object { (New-Object -ComObject WScript.Shell).CreateShortcut($_.FullName).TargetPath -eq $exe.FullName }
+          if (-not $lnk) { throw "桌面没有快捷方式" }
+          Add-Type -AssemblyName System.Speech
+          $s = New-Object System.Speech.Synthesis.SpeechSynthesizer
+          $s.SetOutputToWaveFile("$PWD\t.wav"); $s.Speak("Hello, this is a test of the breath removal tool."); $s.Dispose()
+          Start-Process -FilePath $exe.FullName -ArgumentList "--selftest","$PWD\t.wav","$PWD\out" -Wait
+          Get-Content out\selftest.log -Encoding UTF8
+          if (-not (Select-String -Path out\selftest.log -Pattern "RESULT OK" -Quiet)) { exit 1 }
