@@ -44,7 +44,11 @@ jobs:
           ln -s /Applications dmg/Applications
           cp 使用说明_Mac.txt dmg/使用说明.txt
           cp 第三方开源许可.txt dmg/
-          hdiutil create -volname "去气口工具" -srcfolder dmg -ov -format UDZO "QiQiKou-Mac-${{ matrix.arch }}-v${{ env.VERSION }}.dmg"
+          # 云端 Mac 偶发 "Resource busy"，重试几次
+          for i in 1 2 3 4 5; do
+            hdiutil create -volname "去气口工具" -srcfolder dmg -ov -format UDZO "QiQiKou-Mac-${{ matrix.arch }}-v${{ env.VERSION }}.dmg" && break
+            [ $i = 5 ] && exit 1; echo "第 $i 次失败，稍后重试"; sleep $((i * 5))
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: 去气口工具_Mac版_${{ matrix.arch }}
